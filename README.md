@@ -227,28 +227,13 @@ O script trata essa situação de forma elegante e transparente, atuando da segu
 O script envia dois e-mails automáticos: um ao **iniciar** e outro ao **concluir** o processo.
 
 ### ▶️ E-mail de Início
-
-> *[Imagem a ser inserida: screenshot do e-mail de início com badge azul "INICIADO"]*
-
-```text
-[Cubotimize] ▶️ INICIADO - Dump Qlik Cloud (NOME-SERVIDOR)
-```
+![Print do Email de Início](./screenshot/Print_01_Dump_ScriptIniciado.png)
 
 ### ✅ E-mail de Conclusão com Sucesso
-
-> *[Imagem a ser inserida: screenshot do e-mail de conclusão com badge verde "CONCLUÍDO COM SUCESSO", tabela de resumo e seções por tipo de Space]*
-
-```text
-[Cubotimize] ✅ CONCLUÍDO COM SUCESSO - Dump Qlik Cloud (NOME-SERVIDOR)
-```
+![Print do Email de Início](./screenshot/Print_02_Dump_ScriptConcluidoComSucesso.png)
 
 ### ⚠️ E-mail de Conclusão com Falhas
-
-> *[Imagem a ser inserida: screenshot do e-mail de conclusão com badge vermelho "CONCLUÍDO COM FALHAS", seção de alertas e lista de itens que falharam]*
-
-```text
-[Cubotimize] ⚠️ CONCLUÍDO COM FALHAS - Dump Qlik Cloud (NOME-SERVIDOR)
-```
+![Print do Email de Início](./screenshot/Print_03_Dump_ScriptConcluidoComFalhas.png)
 
 O relatório final inclui:
 * Resumo executivo com contadores totais

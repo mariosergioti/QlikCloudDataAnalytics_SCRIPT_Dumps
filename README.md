@@ -1,15 +1,15 @@
-# ☁️ Backup de Aplicações e Dados Qlik Cloud Data Analytics
+# ☁️ Backup de Aplicações Qlik Cloud Analytics
 
-[![Versão](https://img.shields.io/badge/Versão-3.7.0-2E63E6?style=for-the-badge)](https://github.com/mariosergioti/QlikCloudDataAnalytics_SCRIPT_Dumps/archive/refs/tags/3.7.0.zip)
+[![Versão](https://img.shields.io/badge/Versão-3.9.0-2E63E6?style=for-the-badge)](https://github.com/mariosergioti/QlikCloudDataAnalytics_SCRIPT_Dumps/archive/refs/tags/3.9.0.zip)
 [![Licença](https://img.shields.io/badge/Licença-MIT-3BE854?style=for-the-badge)](LICENSE)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?style=for-the-badge&logo=powershell)](#-pr%C3%A9-requisitos)
-[![Qlik Cloud](https://img.shields.io/badge/Qlik-Cloud_Data_Analytics-009845?style=for-the-badge)](https://www.qlik.com/us/trial/qlik-cloud-analytics)
+[![Qlik Cloud](https://img.shields.io/badge/Qlik-Cloud_Analytics-009845?style=for-the-badge)](https://www.qlik.com/us/trial/qlik-cloud-analytics)
 
-[![Baixar Script](https://img.shields.io/badge/📥_Baixar_Script-2E63E6?style=for-the-badge)](https://github.com/mariosergioti/QlikCloudDataAnalytics_SCRIPT_Dumps/archive/refs/tags/3.7.0.zip)
+[![Baixar Script](https://img.shields.io/badge/📥_Baixar_Script-2E63E6?style=for-the-badge)](https://github.com/mariosergioti/QlikCloudAnalytics_SCRIPT_Dumps/archive/refs/tags/3.9.0.zip)
 
-Script em PowerShell para automação de dumps/backups de **Aplicativos (.qvf)** e **Arquivos de Dados** (QVD, CSV, XLSX, etc.) do **Qlik Cloud Data Analytics (QCDA)**.
+Script em PowerShell para automação de dumps/backups de **Aplicativos (.qvf)** do **Qlik Cloud Analytics (QCA)**.
 
-A solução realiza a extração dos ativos de todos os tipos de Space (Managed, Shared, Personal e Data Space), organiza em pastas por tipo e usuário, gerencia a retenção automática de backups antigos e envia um relatório executivo em HTML por e-mail ao final de cada execução.
+A solução realiza a extração dos ativos de todos os tipos de Space (Managed, Shared e Personal), organiza em pastas por tipo e usuário, gerencia a retenção automática de backups antigos e envia um relatório executivo em HTML por e-mail ao final de cada execução.
 
 ---
 
@@ -17,7 +17,7 @@ A solução realiza a extração dos ativos de todos os tipos de Space (Managed,
 
 > **Se o seu contrato Qlik Cloud for baseado em Capacidade (Capacity-Based Subscription), leia este aviso com atenção antes de configurar o script.**
 
-O Qlik Cloud mede e limita a movimentação de dados dentro do ciclo de cobrança. A exportação em massa de aplicativos e arquivos de dados **consome cota de capacidade**, podendo impactar o limite do seu plano contratado.
+O Qlik Cloud mede e limita a movimentação de dados dentro do ciclo de cobrança. A exportação em massa de aplicativos **consome cota de capacidade**, podendo impactar o limite do seu plano contratado.
 
 **Recomendações antes de ativar:**
 
@@ -32,27 +32,26 @@ O Qlik Cloud mede e limita a movimentação de dados dentro do ciclo de cobranç
 
 ## 🛡️ Por que este backup é essencial?
 
-> **A Qlik não realiza backup dos seus aplicativos e dados para fins de Disaster Recovery (DR).**
+> **A Qlik não realiza backup dos seus aplicativos para fins de Disaster Recovery (DR).**
 
-A Qlik Cloud é uma plataforma SaaS gerenciada pela Qlik, porém a **responsabilidade pela cópia de segurança dos ativos analíticos é do cliente**. Em caso de exclusão acidental, corrupção de dados ou qualquer outro incidente, não há garantia de recuperação pela Qlik sem um backup próprio.
+A Qlik Cloud é uma plataforma SaaS gerenciada pela Qlik, porém a **responsabilidade pela cópia de segurança dos ativos analíticos é do cliente**. Em caso de exclusão acidental, corrupção de arquivos ou qualquer outro incidente, não há garantia de recuperação pela Qlik sem um backup próprio.
 
-Este script resolve justamente essa lacuna, permitindo que sua equipe tenha cópias locais dos aplicativos e arquivos de dados do ambiente Qlik Cloud Data Analytics, prontas para um processo de restauração quando necessário.
+Este script resolve justamente essa lacuna, permitindo que sua equipe tenha cópias locais dos aplicativos do ambiente Qlik Cloud Analytics, prontas para um processo de restauração quando necessário.
 
 ---
 
 ## ✨ Principais Funcionalidades
 
 * **Exportação de Apps (.qvf):** Faz o dump de todos os aplicativos acessíveis pelo usuário, organizados por tipo de Space (Managed, Shared, Personal).
-* **Exportação de Dados:** Baixa arquivos de dados soltos nos spaces (QVD, CSV, XLSX, etc.).
 * **Modo Flexível (NoData):** Escolha entre exportar COM dados de carga ou apenas o layout/script do app (`NoData`), reduzindo drasticamente o tamanho dos arquivos.
 * **Bypass de SSL Inspection:** Utiliza `curl.exe` nativo para contornar políticas de inspeção SSL em redes corporativas.
 * **Mapeamento de Usuários:** Identifica dinamicamente os owners dos Personal Spaces pelo nome do usuário.
-* **Filtros Avançados:** Filtre por nome, tipo de Space, nome do Space e extensões de arquivo.
-* **Exclusões Avançadas:** Exclua por nome, tipo de Space, nome do Space e extensões de arquivo.
+* **Filtros Avançados:** Filtre por nome, tipo de Space e nome do Space.
+* **Exclusões Avançadas:** Exclua por nome, tipo de Space e nome do Space.
 * **Gestão de Retenção:** Exclui automaticamente pastas de backup mais antigas que o limite configurado (ex: D-30).
 * **Paginação Automática:** Navega por todas as páginas da API, sem limite de itens.
 * **Relatório Executivo HTML:** Envia e-mails com design profissional ao iniciar e ao concluir, com resumo por tipo de Space e lista de falhas.
-* **Anexo de log no e-mail:** Recebe e-mail com arquivo de log profissional ao concluir, com resumo por tipo de Space, lista de falhas e o detalhamento de todos os apps ou dados carregados com os respectivos status.
+* **Anexo de log no e-mail:** Recebe e-mail com arquivo de log profissional ao concluir, com resumo por tipo de Space, lista de falhas e o detalhamento de todos os apps carregados com os respectivos status.
 * **Transparência de Privacidade e Filtros:** Contabiliza e exibe na métrica de e-mail os "Apps Ignorados" que não puderam ser baixados devido a regras de privacidade ou filtros ativos.
 
 ---
@@ -114,25 +113,23 @@ Abra o arquivo `.ps1` em um editor de texto e ajuste as variáveis na seção de
 ### Seção 1 — Autenticação
 
 ```powershell
-$vTenantUrl = "https://sua-empresa.us.qlikcloud.com"  # Sem barra no final
+$vTenantUrl = "[https://sua-empresa.us.qlikcloud.com](https://sua-empresa.us.qlikcloud.com)"  # Sem barra no final
 $vApiKey    = "SUA_APIKEY_AQUI"
 ```
 
 ### Seção 2 — O que exportar
 
 ```powershell
-$vDumparApps         = $true     # $true para exportar Apps (.qvf)
-$vDumparDados        = $false    # $true para exportar Arquivos de Dados
-$vDumparAppsSemDados = $true     # $true = layout/script apenas (NoData) — arquivos menores
+$vDumpApps         = $true      # $true para exportar Apps (.qvf)
+$vDumpAppsSemDados = $true      # $true = layout/script apenas (NoData) — arquivos menores
 ```
 
 ### Seção 3 — Filtros de Inclusão (opcional)
 
 ```powershell
-$vFiltroNome       = ""          # Ex: "Producao" — exporta só apps com esta palavra no nome
-$vFiltroTipoEspaco = ""          # "managed", "shared" ou "personal"
-$vFiltroNomeEspaco = ""          # Ex: "Vendas" — exporta só spaces com esta palavra no nome
-$vFiltroExtensoes  = @()         # Ex: @(".qvd", ".csv") — aplicado apenas aos Dados
+$vFiltroNome       = ""         # Ex: "Producao" — exporta só apps com esta palavra no nome
+$vFiltroTipoEspaco = ""         # "managed", "shared" ou "personal"
+$vFiltroNomeEspaco = ""         # Ex: "Vendas" — exporta só spaces com esta palavra no nome
 ```
 
 ### Seção 4 — Exclusões (opcional)
@@ -141,7 +138,6 @@ $vFiltroExtensoes  = @()         # Ex: @(".qvd", ".csv") — aplicado apenas aos
 $vExcluirNome       = ""         # Ex: "Teste" — ignora apps com esta palavra no nome
 $vExcluirTipoEspaco = ""         # Ex: "personal" — ignora todo o Personal Space
 $vExcluirNomeEspaco = ""         # Ex: "Homologacao"
-$vExcluirExtensoes  = @()        # Ex: @(".tmp", ".log")
 ```
 
 ### Seção 5 — Destino e Retenção
@@ -200,10 +196,6 @@ O script trata essa situação de forma elegante e transparente, atuando da segu
     │   │   └── Meu App Pessoal.qvf
     │   └── Outro Usuario\
     │       └── (vazio — privacidade)
-    ├── __Dados\
-    │   └── Nome do Space\
-    │       ├── vendas_2025.qvd
-    │       └── clientes.csv
     └── backup.log
 ```
 
@@ -244,7 +236,6 @@ O relatório final inclui:
 * Seção 🔴 Apps por Managed Space
 * Seção 🔵 Apps por Shared Space
 * Seção 👤 Apps por Personal Space (usuário owner)
-* Seção 🟣 Arquivos de Dados por Space
 * Lista detalhada de falhas com nome do item, ID e descrição técnica do erro
 * Log completo em anexo (`backup.log`)
 

@@ -513,19 +513,69 @@ if ($vDumparDados) {
     Echo ""
     Echo "------[ DUMP DE DADOS ]---------------------------------------------"
 
-    $vEndpointDados = "/api/v1/datafiles"
-    if ($vFiltroNome -ne "") { $vEndpointDados += "?name=$([Uri]::EscapeDataString($vFiltroNome))" }
+    $vTodosOsDados = @()
 
-    $vTodosOsDados = Invoke-QlikCloudGet -Endpoint $vEndpointDados
-    Echo "Arquivos de dados encontrados na API: $($vTodosOsDados.Count)"
+    Echo "Iniciando varredura oficial via Items API (Space por Space)..."
+
+    # Adiciona o Personal Space fictício para a lógica da API
+    $vTodosOsSpacesParaBusca = @( @{ id = "MEU_PERSONAL"; name = "Personal" } ) + $vTodosOsSpaces
+
+    foreach ($vSpace in $vTodosOsSpacesParaBusca) {
+        
+        # 1. Busca todos os itens daquele Space específico
+        if ($vSpace.id -eq "MEU_PERSONAL") {
+            # Para o Personal Space, buscamos pelo dono atual
+            $vEndpointSpace = "/api/v1/items?ownerId=$($vUserInfo.id)"
+        } else {
+            $vEndpointSpace = "/api/v1/items?spaceId=$($vSpace.id)"
+        }
+        
+        if ($vFiltroNome -ne "") {
+            $vEndpointSpace += "&name=$([Uri]::EscapeDataString($vFiltroNome))"
+        }
+
+        $vFiles = Invoke-QlikCloudGet -Endpoint $vEndpointSpace
+        
+        # 2. TRATAMENTO DE BLOQUEIO DE SEGURANÇA (Zero Trust)
+        if ($vFiles.errors) {
+            $vMsgErro = if ($vFiles.errors[0].title) { $vFiles.errors[0].title } else { "Acesso Negado" }
+            if ($vSpace.id -ne "MEU_PERSONAL") {
+                Write-Warning ">> BLOQUEIO DE SEGURANÇA: O robô não é membro do Space '$($vSpace.name)'. Adicione-o no Qlik Cloud para fazer o backup. (API: $vMsgErro)"
+            }
+            continue 
+        } elseif (!$vFiles) {
+            continue
+        }
+
+        if ($vFiles -isnot [System.Array]) { $vFiles = @($vFiles) }
+
+        # 3. Filtramos apenas o que nos interessa (QVDs = dataset / TXTs/CSVs = datafile)
+        foreach ($vFile in $vFiles) {
+            if ($vFile.resourceType -match "^(dataset|datafile)$") {
+                if ([string]::IsNullOrWhiteSpace($vFile.resourceId) -or [string]::IsNullOrWhiteSpace($vFile.name)) { continue }
+                
+                # Para o Personal, garantimos que não estamos pegando itens de outros Spaces vazados na query
+                if ($vSpace.id -eq "MEU_PERSONAL") {
+                    if (![string]::IsNullOrWhiteSpace($vFile.spaceId)) { continue }
+                    $vFile | Add-Member -MemberType NoteProperty -Name spaceId -Value "" -Force
+                } else {
+                    $vFile | Add-Member -MemberType NoteProperty -Name spaceId -Value $vSpace.id -Force
+                }
+                
+                $vTodosOsDados += $vFile
+            }
+        }
+    }
+
+    Echo "Arquivos de dados catalogados com sucesso: $($vTodosOsDados.Count)"
 
     foreach ($vDado in $vTodosOsDados) {
 
-        $vDadoId   = $vDado.id
+        # IMPORTANTE: Na API de Itens, o ID de download do arquivo fica guardado em 'resourceId'
+        $vDadoId   = $vDado.resourceId
         $vDadoNome = $vDado.name
         $vSpaceId  = $vDado.spaceId
-        $vOwnerId  = $vDado.ownerId
-
+        
         $vExtensaoArquivo = [System.IO.Path]::GetExtension($vDadoNome).ToLower()
 
         # --- FILTROS DE EXTENSÃO (INCLUSÃO/EXCLUSÃO) ---
@@ -542,11 +592,9 @@ if ($vDumparDados) {
         $vTipoEspaco = if ($vEspaco) { $vEspaco.type } else { "personal" }
         $vSpaceNome  = if ($vEspaco) { $vEspaco.name } else { "Personal" }
 
-        # --- FILTROS DE ESPAÇO (INCLUSÃO) ---
+        # --- FILTROS DE ESPAÇO E NOME ---
         if ($vFiltroTipoEspaco -ne "" -and $vTipoEspaco -ne $vFiltroTipoEspaco.ToLower()) { continue }
         if ($vFiltroNomeEspaco -ne "" -and $vSpaceNome -notmatch [regex]::Escape($vFiltroNomeEspaco)) { continue }
-
-        # --- FILTROS DE EXCLUSÃO ---
         if ($vExcluirNome -ne "" -and $vDadoNome -match [regex]::Escape($vExcluirNome)) { continue }
         if ($vExcluirTipoEspaco -ne "" -and $vTipoEspaco -eq $vExcluirTipoEspaco.ToLower()) { continue }
         if ($vExcluirNomeEspaco -ne "" -and $vSpaceNome -match [regex]::Escape($vExcluirNomeEspaco)) { continue }
@@ -566,11 +614,54 @@ if ($vDumparDados) {
         $vCaminhoArquivo = "$vCaminhoCompletoPasta\$vArquivoLimpo"
 
         try {
-            $vDataDownloadUrl = "$vTenantUrl/api/v1/datafiles/$vDadoId/data"
-            $vArgsData = @("-s", "-L", "--ssl-no-revoke", "-H", "Authorization: Bearer $vApiKeyLimpa", "-o", $vCaminhoArquivo, $vDataDownloadUrl)
-            & curl.exe $vArgsData
+            $vDataDownloadUrl = "$vTenantUrl/api/v1/data-files/$vDadoId/data"
+            
+            $vTempHeaderFile = "$vPastaDestino\temp_headers_data_$vDadoId.txt"
+            $vTempBodyFile   = "$vPastaDestino\temp_body_data_$vDadoId.txt"
+            
+            # Etapa A: Requisição inicial (sem seguir redirecionamento automático)
+            $vArgsHeader = @("-s", "--ssl-no-revoke", "-o", $vTempBodyFile, "-D", $vTempHeaderFile) + $vCurlHeaders + @($vDataDownloadUrl)
+            & curl.exe $vArgsHeader | Out-Null
 
-            Echo "  -> OK: $vCaminhoArquivo"
+            $vS3DownloadUrl = $null
+            $vHttpCode = 0
+
+            # Lemos o cabeçalho para descobrir se é um arquivo pequeno (200) ou grande na Nuvem S3 (302)
+            if (Test-Path $vTempHeaderFile) {
+                $vHeadersLidos = Get-Content $vTempHeaderFile -Encoding UTF8
+                foreach ($line in $vHeadersLidos) {
+                    if ($line -match "^HTTP\/.*? (\d{3})") {
+                        $vHttpCode = [int]$matches[1]
+                    }
+                    if ($line -match "^Location:\s*(.+)$") {
+                        $vS3DownloadUrl = $matches[1].Trim()
+                        break
+                    }
+                }
+                Remove-Item -Path $vTempHeaderFile -Force -ErrorAction SilentlyContinue
+            }
+
+            # Etapa B: Decisão Inteligente
+            if ($vHttpCode -eq 200) {
+                # Arquivo veio na primeira requisição
+                Move-Item -Path $vTempBodyFile -Destination $vCaminhoArquivo -Force
+                Echo "  -> OK (Download Direto): $vCaminhoArquivo"
+
+            } elseif ($vHttpCode -ge 300 -and $vHttpCode -lt 400 -and $vS3DownloadUrl) {
+                # Arquivo pesado (QVD), precisamos bater na Amazon S3 sem o Token do Qlik
+                Remove-Item -Path $vTempBodyFile -Force -ErrorAction SilentlyContinue
+                
+                $vArgsData = @("-s", "-L", "--ssl-no-revoke", "-o", $vCaminhoArquivo, $vS3DownloadUrl)
+                $vCurlOutput = & curl.exe $vArgsData 2>&1
+                
+                if ($LASTEXITCODE -ne 0) { throw "Falha cURL ao baixar do S3: $vCurlOutput" }
+                Echo "  -> OK (Nuvem/S3): $vCaminhoArquivo"
+
+            } else {
+                Remove-Item -Path $vTempBodyFile -Force -ErrorAction SilentlyContinue
+                if ($vHttpCode -eq 404) { throw "Arquivo não encontrado na API (HTTP 404)." }
+                throw "Falha HTTP $vHttpCode. Sem link de S3."
+            }
 
         } catch {
             $vCountErros++

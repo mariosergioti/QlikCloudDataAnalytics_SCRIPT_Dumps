@@ -145,7 +145,7 @@ $vExcluirExtensoes  = @()        # Ex: @(".tmp", ".log")
 
 ```powershell
 $vPastaBackup = "\\SERVIDOR\BACKUP\QLIK\QLIK_CLOUD\$vServidorNome\Dumps\"
-$vDiasBackup  = 30    # Backups com mais de 30 dias serão excluídos automaticamente
+$vDiasBackup  = 30               # Backups com mais de 30 dias serão excluídos automaticamente
 ```
 
 ### Seção 6 — E-mail

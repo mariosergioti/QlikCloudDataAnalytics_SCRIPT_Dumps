@@ -5,7 +5,7 @@
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?style=for-the-badge&logo=powershell)](.)
 [![Qlik Cloud](https://img.shields.io/badge/Qlik-Cloud_Data_Analytics-009845?style=for-the-badge)](.)
 
-Script em PowerShell para automação de dumps/backups de **Aplicativos (.qvf)** e **Arquivos de Dados** (QVD, CSV, XLSX, etc.) do **Qlik Cloud Data Analytics (SaaS)**.
+Script em PowerShell para automação de dumps/backups de **Aplicativos (.qvf)** e **Arquivos de Dados** (QVD, CSV, XLSX, etc.) do **Qlik Cloud Data Analytics (QCDA)**.
 
 A solução realiza a extração dos ativos de todos os tipos de Space (Managed, Shared, Personal e Data Space), organiza em pastas por tipo e usuário, gerencia a retenção automática de backups antigos e envia um relatório executivo em HTML por e-mail ao final de cada execução.
 

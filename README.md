@@ -45,11 +45,12 @@ Este script resolve justamente essa lacuna, permitindo que sua equipe tenha cóp
 * **Modo Flexível (NoData):** Escolha entre exportar COM dados de carga ou apenas o layout/script do app (`NoData`), reduzindo drasticamente o tamanho dos arquivos.
 * **Bypass de SSL Inspection:** Utiliza `curl.exe` nativo para contornar políticas de inspeção SSL em redes corporativas.
 * **Mapeamento de Usuários:** Identifica dinamicamente os owners dos Personal Spaces pelo nome do usuário.
-* **Filtros Avançados:** Filtre por nome do item, tipo de Space e nome do Space.
+* **Filtros Avançados:** Filtre por nome, tipo de Space, nome do Space e extensões de arquivo.
 * **Exclusões Avançadas:** Exclua por nome, tipo de Space, nome do Space e extensões de arquivo.
 * **Gestão de Retenção:** Exclui automaticamente pastas de backup mais antigas que o limite configurado (ex: D-30).
 * **Paginação Automática:** Navega por todas as páginas da API, sem limite de itens.
 * **Relatório Executivo HTML:** Envia e-mails com design profissional ao iniciar e ao concluir, com resumo por tipo de Space e lista de falhas.
+* **Anexo de log no e-mail:** Recebe e-mail com arquivo de log profissional ao concluir, com resumo por tipo de Space, lista de falhas e o detalhamento de todos os apps ou dados carregados com os respectivos status.
 * **Transparência de Privacidade e Filtros:** Contabiliza e exibe na métrica de e-mail os "Apps Ignorados" que não puderam ser baixados devido a regras de privacidade ou filtros ativos.
 
 ---
@@ -96,7 +97,7 @@ O script não exige, obrigatoriamente, que o usuário seja um `Tenant Admin`. No
 2. Verifique se a geração de API Keys está habilitada no tenant em `Administração > Configurações > Geração de API Key`.
 3. No canto superior direito, clique no seu avatar → **Perfil**.
 4. Vá até a aba **Tokens de API** e clique em **Gerar novo token**.
-5. Dê um nome descritivo (ex: `Cubotimize-Backup`) e defina a validade.
+5. Dê um nome descritivo (ex: `DR_Backup`) e defina a validade.
 
 > 💡 **Dica sobre validade do token:** Por padrão, o Qlik Cloud pode definir expiração curta para tokens. Acesse `Administração > Configurações de Segurança > Tokens de API` e **aumente o tempo máximo de vida do token** para reduzir a frequência de renovações (ex: 1 ano). Lembre-se de criar um lembrete para renovação antes do vencimento.
 

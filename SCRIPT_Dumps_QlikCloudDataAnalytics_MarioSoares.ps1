@@ -1,11 +1,11 @@
-﻿<#
+<#
 .SYNOPSIS
-Cubotimize - Backup de Aplicações e Dados Qlik Cloud
+Cubotimize - Backup de Aplicações Qlik Cloud
 
 .DESCRIPTION
 Script para controle de backups do Qlik Cloud (SaaS).
-Suporta dump de Apps (.qvf) e/ou Arquivos de Dados (QVD, CSV, XLSX, etc.)
-de todos os tipos de Space: Managed, Shared, Personal e Data Space.
+Suporta dump de Apps (.qvf) de todos os tipos de Space:
+Managed, Shared, Personal e Data Space.
 
 Funcionalidades:
   - Autenticação via API Key (Bearer Token)
@@ -15,11 +15,11 @@ Funcionalidades:
   - BYPASS DE REDE CORPORATIVA: Utiliza curl.exe nativo para contornar SSL Inspection.
   - Mapeamento dinâmico de IDs de usuário para Nomes no Personal Space.
   - Filtros avançados por Nome e Tipo de Space.
-  - Exclusões avançadas por Nome, Tipo e Extensão.
+  - Exclusões avançadas por Nome e Tipo.
   - Ignora de forma elegante a restrição de privacidade de Personal Spaces de terceiros.
 
 .NOTES
-Versão: 3.7.0
+Versão: 3.9.0
 Licença: MIT License
 Créditos: Mario Sergio Soares
 Bio Page: https://cubo.plus/mariosergioti
@@ -40,20 +40,17 @@ $vApiKey            = "SUA_APIKEY_TROCAR"
 # ⚙️ 2. O QUE FAZER NO DUMP (COMPORTAMENTO)
 # =================================================================
 # $true para baixar os painéis (.qvf), $false para ignorar.
-$vDumparApps        = $true
+$vDumpApps        = $true
 
-# $true para baixar arquivos de dados soltos nos spaces (.qvd, .csv, etc), $false para ignorar.
-$vDumparDados       = $false
-
-# Configuração de Peso dos Apps (Aplica-se apenas se $vDumparApps = $true):
+# Configuração de Peso dos Apps:
 # $true  -> Baixa apenas o layout/script do App (Arquivo leve e rápido).
 # $false -> Baixa o App completo, incluindo todos os dados carregados nele (Arquivo pesado).
-$vDumparAppsSemDados = $true
+$vDumpAppsSemDados = $true
 
 # =================================================================
 # ⚙️ 3. FILTROS OPCIONAIS (REGRAS DE INCLUSÃO)
 # =================================================================
-# Baixa APENAS os itens com essa palavra no nome. Deixe "" para baixar tudo. Ex: "Producao"
+# Baixa APENAS os Apps com essa palavra no nome. Deixe "" para baixar tudo. Ex: "Producao"
 $vFiltroNome        = ""
 
 # Baixa APENAS este TIPO de Space ("managed", "shared", "personal"). Deixe "" para todos.
@@ -62,13 +59,10 @@ $vFiltroTipoEspaco  = ""
 # Baixa APENAS os Spaces que contenham esta palavra no nome. Deixe "" para todos. Ex: "Vendas"
 $vFiltroNomeEspaco  = ""
 
-# Aplica-se apenas aos DADOS. Baixa APENAS estas extensões. Deixe @() para todos. Ex: @(".qvd", ".csv")
-$vFiltroExtensoes   = @()
-
 # =================================================================
 # ⚙️ 4. EXCLUSÕES OPCIONAIS (REGRAS DE EXCLUSÃO)
 # =================================================================
-# IGNORA os itens que contenham esta palavra no nome. Deixe "" para não excluir nada. Ex: "Teste"
+# IGNORA os Apps que contenham esta palavra no nome. Deixe "" para não excluir nada. Ex: "Teste"
 $vExcluirNome       = ""
 
 # IGNORA este TIPO de Space ("managed", "shared", "personal"). Deixe "" para não excluir nada.
@@ -76,9 +70,6 @@ $vExcluirTipoEspaco = ""
 
 # IGNORA os Spaces que contenham esta palavra no nome. Deixe "" para não excluir nada. Ex: "Homologacao"
 $vExcluirNomeEspaco = ""
-
-# Aplica-se apenas aos DADOS. IGNORA estas extensões. Deixe @() para não excluir nada. Ex: @(".tmp", ".log")
-$vExcluirExtensoes  = @()
 
 # =================================================================
 # ⚙️ 5. CONFIGURAÇÕES DE DESTINO E RETENÇÃO DE ARQUIVOS
@@ -106,7 +97,7 @@ $vSmtpPort          = 587
 $vEmailRemetente    = "TROCAR@gmail.com"
 
 # Senha de Aplicativo (App Password) de 16 dígitos gerada nas configurações de segurança do provedor.
-$vSenhaAppGmail     = "TROCAR"
+$vSenhaAppGmail     = "xxxx xxxx xxxx xxxx"
 
 # E-mail da equipe/pessoa que vai receber o relatório final.
 $vEmailDestino      = "TROCAR", "TROCAR"
@@ -184,10 +175,7 @@ Function Send-CubotimizeEmail {
         [string]$CorBadge = "#4A5568"
     )
 
-    $vModoServico = @()
-    if ($vDumparApps)  { $vModoServico += "Apps" }
-    if ($vDumparDados) { $vModoServico += "Dados" }
-    $vServicoNome = "Dump de $($vModoServico -join ' + ') Qlik Cloud - $vServidorNome"
+    $vServicoNome = "Dump de Apps Qlik Cloud - $vServidorNome"
 
     $vHtmlBody = @"
 <!DOCTYPE html>
@@ -238,7 +226,7 @@ Function Send-CubotimizeEmail {
 </html>
 "@
 
-    $vAssunto = "[Cubotimize] $Status - Dump Qlik Cloud ($vServidorNome)"
+    $vAssunto = "[Cubotimize] $Status - Dump Apps Qlik Cloud ($vServidorNome)"
 
     try {
         $vSecurePassword = ConvertTo-SecureString $vSenhaAppGmail -AsPlainText -Force
@@ -278,15 +266,14 @@ If (!(Test-Path $vPastaDestino)) {
 # DISPARO 1: E-MAIL DE INÍCIO
 # =================================================================
 if ($vEnviarEmail) {
-    $vModoAppsTexto  = if ($vDumparApps)  { if ($vDumparAppsSemDados) { "Apps SEM dados de carga" } else { "Apps COM dados de carga" } } else { "Apps: DESABILITADO" }
-    $vModoDadosTexto = if ($vDumparDados) { "Dados: HABILITADO" } else { "Dados: DESABILITADO" }
-    
-    $vFiltroTexto    = if ($vFiltroNome -ne "") { "Filtro Nome Item: <b>'$vFiltroNome'</b><br>" } else { "" }
+    $vModoAppsTexto = if ($vDumpAppsSemDados) { "Apps SEM dados de carga (NoData)" } else { "Apps COM dados de carga" }
+
+    $vFiltroTexto    = if ($vFiltroNome -ne "") { "Filtro Nome App: <b>'$vFiltroNome'</b><br>" } else { "" }
     $vFiltroTexto   += if ($vFiltroTipoEspaco -ne "") { "Filtro Tipo Space: <b>'$vFiltroTipoEspaco'</b><br>" } else { "" }
     $vFiltroTexto   += if ($vFiltroNomeEspaco -ne "") { "Filtro Nome Space: <b>'$vFiltroNomeEspaco'</b><br>" } else { "" }
     if ($vFiltroTexto -eq "") { $vFiltroTexto = "Sem filtros inclusivos ativos.<br>" }
 
-    $vExclusaoTexto  = if ($vExcluirNome -ne "") { "Excluir Nome Item: <b>'$vExcluirNome'</b><br>" } else { "" }
+    $vExclusaoTexto  = if ($vExcluirNome -ne "") { "Excluir Nome App: <b>'$vExcluirNome'</b><br>" } else { "" }
     $vExclusaoTexto += if ($vExcluirTipoEspaco -ne "") { "Excluir Tipo Space: <b>'$vExcluirTipoEspaco'</b><br>" } else { "" }
     $vExclusaoTexto += if ($vExcluirNomeEspaco -ne "") { "Excluir Nome Space: <b>'$vExcluirNomeEspaco'</b><br>" } else { "" }
     if ($vExclusaoTexto -eq "") { $vExclusaoTexto = "Sem exclusões ativas.<br>" }
@@ -295,7 +282,6 @@ if ($vEnviarEmail) {
 <div style='background-color:#fff3cd; color:#856404; padding:15px; border-radius:6px; font-family:Consolas,monospace; font-size:13px; line-height:1.8;'>
 O processo de dump do Qlik Cloud começou.<br>
 <b>$vModoAppsTexto</b><br>
-<b>$vModoDadosTexto</b><br>
 <hr style="border: 0; border-top: 1px solid #ffe8a1; margin: 10px 0;">
 <b>Filtros (Inclusão):</b><br>
 $vFiltroTexto
@@ -313,24 +299,21 @@ $ErrorActionPreference = "Continue"
 Start-Transcript -path "$($vPastaDestino)backup.log" -append
 
 Echo "================================================================="
-Echo " Cubotimize - Backup de Aplicações e Dados Qlik Cloud"
-Echo " Versão: 3.7.0 (Métrica de Apps Ignorados Adicionada)"
+Echo " Cubotimize - Backup de Aplicações Qlik Cloud"
+Echo " Versão: 3.9.0"
 Echo "================================================================="
 Echo ""
-Echo " Dump de Apps  : $(if ($vDumparApps)  { 'SIM' + $(if ($vDumparAppsSemDados) { ' (sem dados de carga)' } else { ' (com dados de carga)' }) } else { 'NÃO' })"
-Echo " Dump de Dados : $(if ($vDumparDados) { 'SIM' } else { 'NÃO' })"
+Echo " Dump de Apps  : $(if ($vDumpAppsSemDados) { 'SIM (sem dados de carga)' } else { 'SIM (com dados de carga)' })"
 Echo ""
 Echo " --- FILTROS ---"
-Echo " Filtro Nome Item : $(if ($vFiltroNome -ne '') { $vFiltroNome } else { '(nenhum)' })"
+Echo " Filtro Nome App  : $(if ($vFiltroNome -ne '') { $vFiltroNome } else { '(nenhum)' })"
 Echo " Filtro Tipo Space: $(if ($vFiltroTipoEspaco -ne '') { $vFiltroTipoEspaco } else { '(nenhum)' })"
 Echo " Filtro Nome Space: $(if ($vFiltroNomeEspaco -ne '') { $vFiltroNomeEspaco } else { '(nenhum)' })"
-Echo " Filtro Extensões : $(if ($vFiltroExtensoes.Count -gt 0) { $vFiltroExtensoes -join ', ' } else { '(nenhum)' })"
 Echo ""
 Echo " --- EXCLUSÕES ---"
-Echo " Excluir Nome Item : $(if ($vExcluirNome -ne '') { $vExcluirNome } else { '(nenhum)' })"
+Echo " Excluir Nome App  : $(if ($vExcluirNome -ne '') { $vExcluirNome } else { '(nenhum)' })"
 Echo " Excluir Tipo Space: $(if ($vExcluirTipoEspaco -ne '') { $vExcluirTipoEspaco } else { '(nenhum)' })"
 Echo " Excluir Nome Space: $(if ($vExcluirNomeEspaco -ne '') { $vExcluirNomeEspaco } else { '(nenhum)' })"
-Echo " Excluir Extensões : $(if ($vExcluirExtensoes.Count -gt 0) { $vExcluirExtensoes -join ', ' } else { '(nenhum)' })"
 Echo "================================================================="
 Echo ""
 
@@ -358,22 +341,15 @@ try {
 # =================================================================
 $vCaracteresInvalidos = '[\\/:*?"<>|\[\]]'
 
-# Apps
-$vQtdTotalDeApps  = 0
-$vCountManaged    = 0
-$vCountShared     = 0
-$vCountPersonal   = 0
-$vCountAppsIgnorados = 0 # [NOVO] Contador adicionado aqui
-$vContagemManaged = @{}
-$vContagemShared  = @{}
-$vContagemPessoa  = @{}
+$vQtdTotalDeApps     = 0
+$vCountManaged       = 0
+$vCountShared        = 0
+$vCountPersonal      = 0
+$vCountAppsIgnorados = 0
+$vContagemManaged    = @{}
+$vContagemShared     = @{}
+$vContagemPessoa     = @{}
 
-# Dados
-$vCountDados          = 0
-$vCountDadosIgnorados = 0
-$vContagemDadosSpace  = @{}
-
-# Erros
 $vCountErros = 0
 $vListaErros = @()
 
@@ -395,286 +371,110 @@ Echo "Total de Usuários encontrados: $($vTodosOsUsuarios.Count)"
 # =================================================================
 # BLOCO 1: DUMP DE APPS
 # =================================================================
-if ($vDumparApps) {
-    Echo ""
-    Echo "------[ DUMP DE APPS ]----------------------------------------------"
+Echo ""
+Echo "------[ DUMP DE APPS ]----------------------------------------------"
 
-    $vEndpointApps = "/api/v1/items?resourceType=app"
-    if ($vFiltroNome -ne "") { $vEndpointApps += "&name=$([Uri]::EscapeDataString($vFiltroNome))" }
+$vEndpointApps = "/api/v1/items?resourceType=app"
+if ($vFiltroNome -ne "") { $vEndpointApps += "&name=$([Uri]::EscapeDataString($vFiltroNome))" }
 
-    $vTodosOsApps    = Invoke-QlikCloudGet -Endpoint $vEndpointApps
-    $vQtdTotalDeApps = $vTodosOsApps.Count
-    Echo "Apps encontrados na API: $vQtdTotalDeApps"
+$vTodosOsApps    = Invoke-QlikCloudGet -Endpoint $vEndpointApps
+$vQtdTotalDeApps = $vTodosOsApps.Count
+Echo "Apps encontrados na API: $vQtdTotalDeApps"
 
-    foreach ($vItem in $vTodosOsApps) {
+foreach ($vItem in $vTodosOsApps) {
 
-        $vAppId   = $vItem.resourceId
-        $vAppName = $vItem.name
-        $vSpaceId = $vItem.spaceId
-        $vOwnerId = $vItem.ownerId
+    $vAppId   = $vItem.resourceId
+    $vAppName = $vItem.name
+    $vSpaceId = $vItem.spaceId
+    $vOwnerId = $vItem.ownerId
 
-        $vEspaco     = if ($vSpaceId -and $vMapaSpaces.ContainsKey($vSpaceId)) { $vMapaSpaces[$vSpaceId] } else { $null }
-        $vTipoEspaco = if ($vEspaco) { $vEspaco.type } else { "personal" }
-        $vSpaceNome  = if ($vEspaco) { $vEspaco.name } else { "Personal" }
+    $vEspaco     = if ($vSpaceId -and $vMapaSpaces.ContainsKey($vSpaceId)) { $vMapaSpaces[$vSpaceId] } else { $null }
+    $vTipoEspaco = if ($vEspaco) { $vEspaco.type } else { "personal" }
+    $vSpaceNome  = if ($vEspaco) { $vEspaco.name } else { "Personal" }
 
-        # --- FILTROS DE INCLUSÃO --- [NOVO] Adicionado incremento de contador
-        if ($vFiltroTipoEspaco -ne "" -and $vTipoEspaco -ne $vFiltroTipoEspaco.ToLower()) { $vCountAppsIgnorados++; continue }
-        if ($vFiltroNomeEspaco -ne "" -and $vSpaceNome -notmatch [regex]::Escape($vFiltroNomeEspaco)) { $vCountAppsIgnorados++; continue }
+    # --- FILTROS DE INCLUSÃO ---
+    if ($vFiltroTipoEspaco -ne "" -and $vTipoEspaco -ne $vFiltroTipoEspaco.ToLower()) { $vCountAppsIgnorados++; continue }
+    if ($vFiltroNomeEspaco -ne "" -and $vSpaceNome -notmatch [regex]::Escape($vFiltroNomeEspaco)) { $vCountAppsIgnorados++; continue }
 
-        # --- FILTROS DE EXCLUSÃO --- [NOVO] Adicionado incremento de contador
-        if ($vExcluirNome -ne "" -and $vAppName -match [regex]::Escape($vExcluirNome)) { $vCountAppsIgnorados++; continue }
-        if ($vExcluirTipoEspaco -ne "" -and $vTipoEspaco -eq $vExcluirTipoEspaco.ToLower()) { $vCountAppsIgnorados++; continue }
-        if ($vExcluirNomeEspaco -ne "" -and $vSpaceNome -match [regex]::Escape($vExcluirNomeEspaco)) { $vCountAppsIgnorados++; continue }
+    # --- FILTROS DE EXCLUSÃO ---
+    if ($vExcluirNome -ne "" -and $vAppName -match [regex]::Escape($vExcluirNome)) { $vCountAppsIgnorados++; continue }
+    if ($vExcluirTipoEspaco -ne "" -and $vTipoEspaco -eq $vExcluirTipoEspaco.ToLower()) { $vCountAppsIgnorados++; continue }
+    if ($vExcluirNomeEspaco -ne "" -and $vSpaceNome -match [regex]::Escape($vExcluirNomeEspaco)) { $vCountAppsIgnorados++; continue }
 
-        if ($vTipoEspaco -eq "managed") {
-            $vCountManaged++
-            $vNomeLimpo        = ($vSpaceNome -replace $vCaracteresInvalidos, "").Trim()
-            $vNomePastaDestino = "__Managed\$vNomeLimpo"
-            $vContagemManaged[$vNomeLimpo] = [int]$vContagemManaged[$vNomeLimpo] + 1
+    if ($vTipoEspaco -eq "managed") {
+        $vCountManaged++
+        $vNomeLimpo        = ($vSpaceNome -replace $vCaracteresInvalidos, "").Trim()
+        $vNomePastaDestino = "__Managed\$vNomeLimpo"
+        $vContagemManaged[$vNomeLimpo] = [int]$vContagemManaged[$vNomeLimpo] + 1
 
-        } elseif ($vTipoEspaco -eq "shared") {
-            $vCountShared++
-            $vNomeLimpo        = ($vSpaceNome -replace $vCaracteresInvalidos, "").Trim()
-            $vNomePastaDestino = "__Shared\$vNomeLimpo"
-            $vContagemShared[$vNomeLimpo] = [int]$vContagemShared[$vNomeLimpo] + 1
+    } elseif ($vTipoEspaco -eq "shared") {
+        $vCountShared++
+        $vNomeLimpo        = ($vSpaceNome -replace $vCaracteresInvalidos, "").Trim()
+        $vNomePastaDestino = "__Shared\$vNomeLimpo"
+        $vContagemShared[$vNomeLimpo] = [int]$vContagemShared[$vNomeLimpo] + 1
 
-        } else {
-            $vCountPersonal++
-            $vNomeDono = if ($vOwnerId -and $vMapaUsuarios.ContainsKey($vOwnerId)) { $vMapaUsuarios[$vOwnerId] } else { $vOwnerId }
-            $vNomeLimpo        = if (![string]::IsNullOrWhiteSpace($vNomeDono)) { ($vNomeDono -replace $vCaracteresInvalidos, "").Trim() } else { "SemDono" }
-            $vNomePastaDestino = "__Personal\$vNomeLimpo"
-            $vContagemPessoa[$vNomeLimpo] = [int]$vContagemPessoa[$vNomeLimpo] + 1
-        }
-
-        Echo "Exportando App: $vAppName | Space/User: $vNomeLimpo ($vTipoEspaco)"
-
-        $vCaminhoCompletoPasta = "$vPastaDestino$vNomePastaDestino"
-        If (!(Test-Path $vCaminhoCompletoPasta)) { New-Item -ItemType Directory -Force -Path $vCaminhoCompletoPasta | Out-Null }
-
-        $vArquivoLimpo   = ($vAppName -replace $vCaracteresInvalidos, "").Trim()
-        $vCaminhoArquivo = "$vCaminhoCompletoPasta\$vArquivoLimpo.qvf"
-
-        try {
-            $vExportUrl = "$vTenantUrl/api/v1/apps/$vAppId/export"
-            if ($vDumparAppsSemDados) { $vExportUrl += "?NoData=true" }
-
-            $vTempHeaderFile = "$vPastaDestino\temp_headers_$vAppId.txt"
-            $vArgsExport = @("-s", "--ssl-no-revoke", "-X", "POST", "-D", $vTempHeaderFile) + $vCurlHeaders + @($vExportUrl)
-            & curl.exe $vArgsExport | Out-Null
-
-            $vDownloadUrl = $null
-            if (Test-Path $vTempHeaderFile) {
-                $vHeadersLidos = Get-Content $vTempHeaderFile -Encoding UTF8
-                foreach ($line in $vHeadersLidos) {
-                    if ($line -match "^Location:\s*(.+)$") {
-                        $vDownloadUrl = $matches[1].Trim()
-                        break
-                    }
-                }
-                Remove-Item -Path $vTempHeaderFile -ErrorAction SilentlyContinue
-            }
-
-            # VERIFICAÇÃO INTELIGENTE DE PRIVACIDADE DO PERSONAL SPACE
-            if ([string]::IsNullOrWhiteSpace($vDownloadUrl)) { 
-                if ($vTipoEspaco -eq "personal") {
-                    Echo "  -> ⚠️ IGNORADO: Sem permissão para exportar App do Personal Space de terceiros."
-                    $vCountAppsIgnorados++
-                    $vCountPersonal--
-                    continue 
-                } else {
-                    throw "Link de download ausente na resposta da API." 
-                }
-            }
-            
-            if ($vDownloadUrl -notmatch "^https?://") { $vDownloadUrl = "$vTenantUrl$vDownloadUrl" }
-
-            $vArgsDownload = @("-s", "-L", "--ssl-no-revoke", "-H", "Authorization: Bearer $vApiKeyLimpa", "-o", $vCaminhoArquivo, $vDownloadUrl)
-            & curl.exe $vArgsDownload
-
-            Echo "  -> OK: $vCaminhoArquivo"
-
-        } catch {
-            $vCountErros++
-            $vListaErros += "<b>App:</b> $vAppName <br><b>ID:</b> $vAppId <br><b>Falha:</b> $($_.Exception.Message)"
-            Write-Warning "FALHA ao exportar '$vAppName' (ID: $vAppId): $($_.Exception.Message)"
-        }
-    }
-    Echo "------[ FIM DUMP DE APPS ]------------------------------------------"
-
-} else {
-    Echo ""
-    Echo "------[ DUMP DE APPS DESABILITADO ]----------------------------------"
-}
-
-# =================================================================
-# BLOCO 2: DUMP DE DADOS
-# =================================================================
-if ($vDumparDados) {
-    Echo ""
-    Echo "------[ DUMP DE DADOS ]---------------------------------------------"
-
-    $vTodosOsDados = @()
-
-    Echo "Iniciando varredura oficial via Items API (Space por Space)..."
-
-    # Adiciona o Personal Space fictício para a lógica da API
-    $vTodosOsSpacesParaBusca = @( @{ id = "MEU_PERSONAL"; name = "Personal" } ) + $vTodosOsSpaces
-
-    foreach ($vSpace in $vTodosOsSpacesParaBusca) {
-        
-        # 1. Busca todos os itens daquele Space específico
-        if ($vSpace.id -eq "MEU_PERSONAL") {
-            # Para o Personal Space, buscamos pelo dono atual
-            $vEndpointSpace = "/api/v1/items?ownerId=$($vUserInfo.id)"
-        } else {
-            $vEndpointSpace = "/api/v1/items?spaceId=$($vSpace.id)"
-        }
-        
-        if ($vFiltroNome -ne "") {
-            $vEndpointSpace += "&name=$([Uri]::EscapeDataString($vFiltroNome))"
-        }
-
-        $vFiles = Invoke-QlikCloudGet -Endpoint $vEndpointSpace
-        
-        # 2. TRATAMENTO DE BLOQUEIO DE SEGURANÇA (Zero Trust)
-        if ($vFiles.errors) {
-            $vMsgErro = if ($vFiles.errors[0].title) { $vFiles.errors[0].title } else { "Acesso Negado" }
-            if ($vSpace.id -ne "MEU_PERSONAL") {
-                Write-Warning ">> BLOQUEIO DE SEGURANÇA: O robô não é membro do Space '$($vSpace.name)'. Adicione-o no Qlik Cloud para fazer o backup. (API: $vMsgErro)"
-            }
-            continue 
-        } elseif (!$vFiles) {
-            continue
-        }
-
-        if ($vFiles -isnot [System.Array]) { $vFiles = @($vFiles) }
-
-        # 3. Filtramos apenas o que nos interessa (QVDs = dataset / TXTs/CSVs = datafile)
-        foreach ($vFile in $vFiles) {
-            if ($vFile.resourceType -match "^(dataset|datafile)$") {
-                if ([string]::IsNullOrWhiteSpace($vFile.resourceId) -or [string]::IsNullOrWhiteSpace($vFile.name)) { continue }
-                
-                # Para o Personal, garantimos que não estamos pegando itens de outros Spaces vazados na query
-                if ($vSpace.id -eq "MEU_PERSONAL") {
-                    if (![string]::IsNullOrWhiteSpace($vFile.spaceId)) { continue }
-                    $vFile | Add-Member -MemberType NoteProperty -Name spaceId -Value "" -Force
-                } else {
-                    $vFile | Add-Member -MemberType NoteProperty -Name spaceId -Value $vSpace.id -Force
-                }
-                
-                $vTodosOsDados += $vFile
-            }
-        }
+    } else {
+        $vCountPersonal++
+        $vNomeDono = if ($vOwnerId -and $vMapaUsuarios.ContainsKey($vOwnerId)) { $vMapaUsuarios[$vOwnerId] } else { $vOwnerId }
+        $vNomeLimpo        = if (![string]::IsNullOrWhiteSpace($vNomeDono)) { ($vNomeDono -replace $vCaracteresInvalidos, "").Trim() } else { "SemDono" }
+        $vNomePastaDestino = "__Personal\$vNomeLimpo"
+        $vContagemPessoa[$vNomeLimpo] = [int]$vContagemPessoa[$vNomeLimpo] + 1
     }
 
-    Echo "Arquivos de dados catalogados com sucesso: $($vTodosOsDados.Count)"
+    Echo "Exportando App: $vAppName | Space/User: $vNomeLimpo ($vTipoEspaco)"
 
-    foreach ($vDado in $vTodosOsDados) {
+    $vCaminhoCompletoPasta = "$vPastaDestino$vNomePastaDestino"
+    If (!(Test-Path $vCaminhoCompletoPasta)) { New-Item -ItemType Directory -Force -Path $vCaminhoCompletoPasta | Out-Null }
 
-        # IMPORTANTE: Na API de Itens, o ID de download do arquivo fica guardado em 'resourceId'
-        $vDadoId   = $vDado.resourceId
-        $vDadoNome = $vDado.name
-        $vSpaceId  = $vDado.spaceId
-        
-        $vExtensaoArquivo = [System.IO.Path]::GetExtension($vDadoNome).ToLower()
+    $vArquivoLimpo   = ($vAppName -replace $vCaracteresInvalidos, "").Trim()
+    $vCaminhoArquivo = "$vCaminhoCompletoPasta\$vArquivoLimpo.qvf"
 
-        # --- FILTROS DE EXTENSÃO (INCLUSÃO/EXCLUSÃO) ---
-        if ($vFiltroExtensoes.Count -gt 0 -and $vFiltroExtensoes -notcontains $vExtensaoArquivo) {
-            $vCountDadosIgnorados++
-            continue
-        }
-        if ($vExcluirExtensoes.Count -gt 0 -and $vExcluirExtensoes -contains $vExtensaoArquivo) {
-            $vCountDadosIgnorados++
-            continue
-        }
+    try {
+        $vExportUrl = "$vTenantUrl/api/v1/apps/$vAppId/export"
+        if ($vDumpAppsSemDados) { $vExportUrl += "?NoData=true" }
 
-        $vEspaco     = if ($vSpaceId -and $vMapaSpaces.ContainsKey($vSpaceId)) { $vMapaSpaces[$vSpaceId] } else { $null }
-        $vTipoEspaco = if ($vEspaco) { $vEspaco.type } else { "personal" }
-        $vSpaceNome  = if ($vEspaco) { $vEspaco.name } else { "Personal" }
+        $vTempHeaderFile = "$vPastaDestino\temp_headers_$vAppId.txt"
+        $vArgsExport = @("-s", "--ssl-no-revoke", "-X", "POST", "-D", $vTempHeaderFile) + $vCurlHeaders + @($vExportUrl)
+        & curl.exe $vArgsExport | Out-Null
 
-        # --- FILTROS DE ESPAÇO E NOME ---
-        if ($vFiltroTipoEspaco -ne "" -and $vTipoEspaco -ne $vFiltroTipoEspaco.ToLower()) { continue }
-        if ($vFiltroNomeEspaco -ne "" -and $vSpaceNome -notmatch [regex]::Escape($vFiltroNomeEspaco)) { continue }
-        if ($vExcluirNome -ne "" -and $vDadoNome -match [regex]::Escape($vExcluirNome)) { continue }
-        if ($vExcluirTipoEspaco -ne "" -and $vTipoEspaco -eq $vExcluirTipoEspaco.ToLower()) { continue }
-        if ($vExcluirNomeEspaco -ne "" -and $vSpaceNome -match [regex]::Escape($vExcluirNomeEspaco)) { continue }
-
-        $vNomeLimpoSpace   = ($vSpaceNome -replace $vCaracteresInvalidos, "").Trim()
-        $vNomePastaDestino = "__Dados\$vNomeLimpoSpace"
-
-        $vContagemDadosSpace[$vNomeLimpoSpace] = [int]$vContagemDadosSpace[$vNomeLimpoSpace] + 1
-        $vCountDados++
-
-        Echo "Exportando Dado: $vDadoNome | Space: $vSpaceNome ($vTipoEspaco)"
-
-        $vCaminhoCompletoPasta = "$vPastaDestino$vNomePastaDestino"
-        If (!(Test-Path $vCaminhoCompletoPasta)) { New-Item -ItemType Directory -Force -Path $vCaminhoCompletoPasta | Out-Null }
-
-        $vArquivoLimpo   = ($vDadoNome -replace $vCaracteresInvalidos, "").Trim()
-        $vCaminhoArquivo = "$vCaminhoCompletoPasta\$vArquivoLimpo"
-
-        try {
-            $vDataDownloadUrl = "$vTenantUrl/api/v1/data-files/$vDadoId/data"
-            
-            $vTempHeaderFile = "$vPastaDestino\temp_headers_data_$vDadoId.txt"
-            $vTempBodyFile   = "$vPastaDestino\temp_body_data_$vDadoId.txt"
-            
-            # Etapa A: Requisição inicial (sem seguir redirecionamento automático)
-            $vArgsHeader = @("-s", "--ssl-no-revoke", "-o", $vTempBodyFile, "-D", $vTempHeaderFile) + $vCurlHeaders + @($vDataDownloadUrl)
-            & curl.exe $vArgsHeader | Out-Null
-
-            $vS3DownloadUrl = $null
-            $vHttpCode = 0
-
-            # Lemos o cabeçalho para descobrir se é um arquivo pequeno (200) ou grande na Nuvem S3 (302)
-            if (Test-Path $vTempHeaderFile) {
-                $vHeadersLidos = Get-Content $vTempHeaderFile -Encoding UTF8
-                foreach ($line in $vHeadersLidos) {
-                    if ($line -match "^HTTP\/.*? (\d{3})") {
-                        $vHttpCode = [int]$matches[1]
-                    }
-                    if ($line -match "^Location:\s*(.+)$") {
-                        $vS3DownloadUrl = $matches[1].Trim()
-                        break
-                    }
+        $vDownloadUrl = $null
+        if (Test-Path $vTempHeaderFile) {
+            $vHeadersLidos = Get-Content $vTempHeaderFile -Encoding UTF8
+            foreach ($line in $vHeadersLidos) {
+                if ($line -match "^Location:\s*(.+)$") {
+                    $vDownloadUrl = $matches[1].Trim()
+                    break
                 }
-                Remove-Item -Path $vTempHeaderFile -Force -ErrorAction SilentlyContinue
             }
+            Remove-Item -Path $vTempHeaderFile -ErrorAction SilentlyContinue
+        }
 
-            # Etapa B: Decisão Inteligente
-            if ($vHttpCode -eq 200) {
-                # Arquivo veio na primeira requisição
-                Move-Item -Path $vTempBodyFile -Destination $vCaminhoArquivo -Force
-                Echo "  -> OK (Download Direto): $vCaminhoArquivo"
-
-            } elseif ($vHttpCode -ge 300 -and $vHttpCode -lt 400 -and $vS3DownloadUrl) {
-                # Arquivo pesado (QVD), precisamos bater na Amazon S3 sem o Token do Qlik
-                Remove-Item -Path $vTempBodyFile -Force -ErrorAction SilentlyContinue
-                
-                $vArgsData = @("-s", "-L", "--ssl-no-revoke", "-o", $vCaminhoArquivo, $vS3DownloadUrl)
-                $vCurlOutput = & curl.exe $vArgsData 2>&1
-                
-                if ($LASTEXITCODE -ne 0) { throw "Falha cURL ao baixar do S3: $vCurlOutput" }
-                Echo "  -> OK (Nuvem/S3): $vCaminhoArquivo"
-
+        # VERIFICAÇÃO INTELIGENTE DE PRIVACIDADE DO PERSONAL SPACE
+        if ([string]::IsNullOrWhiteSpace($vDownloadUrl)) { 
+            if ($vTipoEspaco -eq "personal") {
+                Echo "  -> ⚠️ IGNORADO: Sem permissão para exportar App do Personal Space de terceiros."
+                $vCountAppsIgnorados++
+                $vCountPersonal--
+                continue 
             } else {
-                Remove-Item -Path $vTempBodyFile -Force -ErrorAction SilentlyContinue
-                if ($vHttpCode -eq 404) { throw "Arquivo não encontrado na API (HTTP 404)." }
-                throw "Falha HTTP $vHttpCode. Sem link de S3."
+                throw "Link de download ausente na resposta da API." 
             }
-
-        } catch {
-            $vCountErros++
-            $vListaErros += "<b>Dado:</b> $vDadoNome <br><b>ID:</b> $vDadoId <br><b>Falha:</b> $($_.Exception.Message)"
-            Write-Warning "FALHA ao exportar dado '$vDadoNome' (ID: $vDadoId): $($_.Exception.Message)"
         }
-    }
-    Echo "------[ FIM DUMP DE DADOS ]-----------------------------------------"
+        
+        if ($vDownloadUrl -notmatch "^https?://") { $vDownloadUrl = "$vTenantUrl$vDownloadUrl" }
 
-} else {
-    Echo ""
-    Echo "------[ DUMP DE DADOS DESABILITADO ]----------------------------------"
+        $vArgsDownload = @("-s", "-L", "--ssl-no-revoke", "-H", "Authorization: Bearer $vApiKeyLimpa", "-o", $vCaminhoArquivo, $vDownloadUrl)
+        & curl.exe $vArgsDownload
+
+        Echo "  -> OK: $vCaminhoArquivo"
+
+    } catch {
+        $vCountErros++
+        $vListaErros += "<b>App:</b> $vAppName <br><b>ID:</b> $vAppId <br><b>Falha:</b> $($_.Exception.Message)"
+        Write-Warning "FALHA ao exportar '$vAppName' (ID: $vAppId): $($_.Exception.Message)"
+    }
 }
+Echo "------[ FIM DUMP DE APPS ]------------------------------------------"
 
 # =================================================================
 # LIMPEZA DE RETENÇÃO
@@ -718,27 +518,23 @@ if ($vEnviarEmail) {
     $vStatusFinal    = if ($vCountErros -gt 0) { "⚠️ CONCLUÍDO COM FALHAS" } else { "✅ CONCLUÍDO COM SUCESSO" }
     $vCorBadgeFinal  = if ($vCountErros -gt 0) { "#E83B3B" } else { "#3BE854" }
 
-    $vModoAppsRelat   = if ($vDumparApps)  { if ($vDumparAppsSemDados) { "SEM dados de carga (NoData)" } else { "COM dados de carga" } } else { "Desabilitado" }
-    $vModoDadosRelat  = if ($vDumparDados) { "Habilitado" } else { "Desabilitado" }
-    
-    $vFiltroNomeRelat = if ($vFiltroNome -ne "") { $vFiltroNome } else { "(nenhum)" }
-    $vFiltroTipoRelat = if ($vFiltroTipoEspaco -ne "") { $vFiltroTipoEspaco } else { "(nenhum)" }
+    $vModoAppsRelat    = if ($vDumpAppsSemDados) { "SEM dados de carga (NoData)" } else { "COM dados de carga" }
+    $vFiltroNomeRelat  = if ($vFiltroNome -ne "") { $vFiltroNome } else { "(nenhum)" }
+    $vFiltroTipoRelat  = if ($vFiltroTipoEspaco -ne "") { $vFiltroTipoEspaco } else { "(nenhum)" }
     $vFiltroSpaceRelat = if ($vFiltroNomeEspaco -ne "") { $vFiltroNomeEspaco } else { "(nenhum)" }
-
-    $vExcluirNomeRelat = if ($vExcluirNome -ne "") { $vExcluirNome } else { "(nenhuma)" }
-    $vExcluirTipoRelat = if ($vExcluirTipoEspaco -ne "") { $vExcluirTipoEspaco } else { "(nenhuma)" }
+    $vExcluirNomeRelat  = if ($vExcluirNome -ne "") { $vExcluirNome } else { "(nenhuma)" }
+    $vExcluirTipoRelat  = if ($vExcluirTipoEspaco -ne "") { $vExcluirTipoEspaco } else { "(nenhuma)" }
     $vExcluirSpaceRelat = if ($vExcluirNomeEspaco -ne "") { $vExcluirNomeEspaco } else { "(nenhuma)" }
 
     $vHtmlRelatorio = @"
     <h3 style='color: #2E63E6; margin-bottom: 10px; font-size: 17px;'>📊 Resumo da Execução</h3>
     <table style='width: 100%; border-collapse: collapse; text-align: left; background-color: #fff; border: 1px solid #eee; font-size: 13px;'>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Tenant</td><td style='padding: 7px 8px; font-weight: bold; color: #2E63E6; border-bottom: 1px solid #eee;'>$vTenantUrl</td></tr>
-        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Dump de Apps</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vModoAppsRelat</td></tr>
-        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Dump de Dados</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vModoDadosRelat</td></tr>
-        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Filtro Item/App</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vFiltroNomeRelat</td></tr>
+        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Modo de Dump</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vModoAppsRelat</td></tr>
+        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Filtro Nome App</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vFiltroNomeRelat</td></tr>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Filtro Tipo Space</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vFiltroTipoRelat</td></tr>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Filtro Nome Space</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vFiltroSpaceRelat</td></tr>
-        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Excluir Nome Item</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vExcluirNomeRelat</td></tr>
+        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Excluir Nome App</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vExcluirNomeRelat</td></tr>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Excluir Tipo Space</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vExcluirTipoRelat</td></tr>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Excluir Nome Space</td><td style='padding: 7px 8px; font-weight: bold; color: #4A5567; border-bottom: 1px solid #eee;'>$vExcluirSpaceRelat</td></tr>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Retenção</td><td style='padding: 7px 8px; font-weight: bold; border-bottom: 1px solid #eee;'>$vDiasBackup dias</td></tr>
@@ -746,7 +542,6 @@ if ($vEnviarEmail) {
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Apps Shared 🔵</td><td style='padding: 7px 8px; font-weight: bold; color: #2E63E6; border-bottom: 1px solid #eee;'>$vCountShared</td></tr>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Apps Personal 👤</td><td style='padding: 7px 8px; font-weight: bold; border-bottom: 1px solid #eee;'>$vCountPersonal</td></tr>
         <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Apps Ignorados ⚠️</td><td style='padding: 7px 8px; font-weight: bold; color: #f39c12; border-bottom: 1px solid #eee;'>$vCountAppsIgnorados (Filtros + Privacidade)</td></tr>
-        <tr><td style='padding: 7px 8px; border-bottom: 1px solid #eee; color: #555;'>Arquivos de Dados 🟣</td><td style='padding: 7px 8px; font-weight: bold; color: #534AB7; border-bottom: 1px solid #eee;'>$vCountDados$(if ($vCountDadosIgnorados -gt 0) { " (+$vCountDadosIgnorados ignorados pelas regras)" })</td></tr>
         <tr><td style='padding: 7px 8px; color: #555;'>Falhas de Exportação</td><td style='padding: 7px 8px; font-weight: bold; color: $vCorErro;'>$vCountErros</td></tr>
     </table><br>
 "@
@@ -761,7 +556,7 @@ if ($vEnviarEmail) {
         $vHtmlRelatorio += "</ul></div>"
     }
 
-    if ($vDumparApps -and $vContagemManaged.Count -gt 0) {
+    if ($vContagemManaged.Count -gt 0) {
         $vHtmlRelatorio += "<h3 style='color:#E83B3B;margin-top:15px;margin-bottom:10px;font-size:15px;'>🔴 Apps por Managed Space</h3>"
         $vHtmlRelatorio += "<table style='width:100%;border-collapse:collapse;font-size:13px;border:1px solid #ddd;'><tr style='background:#f1f3f4;'><th style='padding:7px 8px;border:1px solid #ddd;text-align:left;'>Space</th><th style='padding:7px 8px;border:1px solid #ddd;width:80px;text-align:center;'>Apps</th></tr>"
         foreach ($key in ($vContagemManaged.Keys | Sort-Object)) {
@@ -770,7 +565,7 @@ if ($vEnviarEmail) {
         $vHtmlRelatorio += "</table><br>"
     }
 
-    if ($vDumparApps -and $vContagemShared.Count -gt 0) {
+    if ($vContagemShared.Count -gt 0) {
         $vHtmlRelatorio += "<h3 style='color:#2E63E6;margin-top:15px;margin-bottom:10px;font-size:15px;'>🔵 Apps por Shared Space</h3>"
         $vHtmlRelatorio += "<table style='width:100%;border-collapse:collapse;font-size:13px;border:1px solid #ddd;'><tr style='background:#f1f3f4;'><th style='padding:7px 8px;border:1px solid #ddd;text-align:left;'>Space</th><th style='padding:7px 8px;border:1px solid #ddd;width:80px;text-align:center;'>Apps</th></tr>"
         foreach ($key in ($vContagemShared.Keys | Sort-Object)) {
@@ -779,20 +574,11 @@ if ($vEnviarEmail) {
         $vHtmlRelatorio += "</table><br>"
     }
 
-    if ($vDumparApps -and $vContagemPessoa.Count -gt 0) {
+    if ($vContagemPessoa.Count -gt 0) {
         $vHtmlRelatorio += "<h3 style='color:#4A5567;margin-top:15px;margin-bottom:10px;font-size:15px;'>👤 Apps por Personal Space (Usuário)</h3>"
         $vHtmlRelatorio += "<table style='width:100%;border-collapse:collapse;font-size:13px;border:1px solid #ddd;'><tr style='background:#f1f3f4;'><th style='padding:7px 8px;border:1px solid #ddd;text-align:left;'>Usuário (Owner)</th><th style='padding:7px 8px;border:1px solid #ddd;width:80px;text-align:center;'>Apps</th></tr>"
         foreach ($key in ($vContagemPessoa.Keys | Sort-Object)) {
             $vHtmlRelatorio += "<tr><td style='padding:6px 8px;border:1px solid #ddd;'>$key</td><td style='padding:6px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;'>$($vContagemPessoa[$key])</td></tr>"
-        }
-        $vHtmlRelatorio += "</table><br>"
-    }
-
-    if ($vDumparDados -and $vContagemDadosSpace.Count -gt 0) {
-        $vHtmlRelatorio += "<h3 style='color:#534AB7;margin-top:15px;margin-bottom:10px;font-size:15px;'>🟣 Arquivos de Dados por Space</h3>"
-        $vHtmlRelatorio += "<table style='width:100%;border-collapse:collapse;font-size:13px;border:1px solid #ddd;'><tr style='background:#f1f3f4;'><th style='padding:7px 8px;border:1px solid #ddd;text-align:left;'>Space</th><th style='padding:7px 8px;border:1px solid #ddd;width:80px;text-align:center;'>Arquivos</th></tr>"
-        foreach ($key in ($vContagemDadosSpace.Keys | Sort-Object)) {
-            $vHtmlRelatorio += "<tr><td style='padding:6px 8px;border:1px solid #ddd;'>$key</td><td style='padding:6px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;'>$($vContagemDadosSpace[$key])</td></tr>"
         }
         $vHtmlRelatorio += "</table><br>"
     }

@@ -118,9 +118,9 @@ $vApiKey    = "SUA_APIKEY_AQUI"
 ### Seção 2 — O que exportar
 
 ```powershell
-$vDumparApps         = $true   # $true para exportar Apps (.qvf)
-$vDumparDados        = $false  # $true para exportar Arquivos de Dados
-$vDumparAppsSemDados = $true   # $true = layout/script apenas (NoData) — arquivos menores
+$vDumparApps         = $true     # $true para exportar Apps (.qvf)
+$vDumparDados        = $false    # $true para exportar Arquivos de Dados
+$vDumparAppsSemDados = $true     # $true = layout/script apenas (NoData) — arquivos menores
 ```
 
 ### Seção 3 — Filtros de Inclusão (opcional)

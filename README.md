@@ -1,4 +1,4 @@
-# ☁️ Cubotimize — Backup de Aplicações e Dados Qlik Cloud Data Analytics
+# ☁️ Backup de Aplicações e Dados Qlik Cloud Data Analytics
 
 [![Versão](https://img.shields.io/badge/Versão-3.7.0-2E63E6?style=for-the-badge)](.)
 [![Licença](https://img.shields.io/badge/Licença-MIT-3BE854?style=for-the-badge)](.)

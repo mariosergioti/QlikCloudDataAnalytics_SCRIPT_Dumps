@@ -222,13 +222,13 @@ O script trata essa situação de forma elegante e transparente, atuando da segu
 O script envia dois e-mails automáticos: um ao **iniciar** e outro ao **concluir** o processo.
 
 ### ▶️ E-mail de Início
-![Print do Email de Início](./screenshot/Print_01_DumpQCDA_ScriptIniciado.png)
+![Print do Email de Início](./screenshot/Print_01_DumpQCA_ScriptIniciado.png)
 
 ### ✅ E-mail de Conclusão com Sucesso
-![Print do Email de Início](./screenshot/Print_02_DumpQCDA_ScriptConcluidoComSucesso.png)
+![Print do Email de Início](./screenshot/Print_02_DumpQCA_ScriptConcluidoComSucesso.png)
 
 ### ⚠️ E-mail de Conclusão com Falhas
-![Print do Email de Início](./screenshot/Print_03_DumpQCDA_ScriptConcluidoComFalhas.png)
+![Print do Email de Início](./screenshot/Print_03_DumpQCA_ScriptConcluidoComFalhas.png)
 
 O relatório final inclui:
 * Resumo executivo com contadores totais

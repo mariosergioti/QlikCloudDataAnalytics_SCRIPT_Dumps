@@ -61,7 +61,7 @@ $vFiltroNomeEspaco  = @()
 # =================================================================
 # IGNORA os itens informados. Deixe "" ou @() para não excluir nada.
 # Suporta múltiplos valores: @("Valor1", "Valor2")
-$vExcluirNome       = @("Cópia")
+$vExcluirNome       = @("Cópia", "Copia", "Bk", "Backup")
 $vExcluirTipoEspaco = @()
 $vExcluirNomeEspaco = @("Backup")
 
@@ -376,7 +376,6 @@ Echo "Total de Usuários encontrados: $($vTodosOsUsuarios.Count)"
 # =================================================================
 # PREPARAÇÃO DE FILTROS AVANÇADOS (LISTAS E REGEX)
 # =================================================================
-# Função auxiliar para criar um padrão de busca (Regex) para múltiplos nomes
 Function Build-RegexPattern ($ArrayOrString) {
     if ($null -eq $ArrayOrString) { return "" }
     $vListaLimpa = @($ArrayOrString | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { [regex]::Escape($_.Trim()) })
@@ -384,11 +383,9 @@ Function Build-RegexPattern ($ArrayOrString) {
     return ""
 }
 
-# 1. Prepara os Tipos de Space (Listas em minúsculo para busca rápida)
 $vListaFiltroTipo  = @($vFiltroTipoEspaco | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLower().Trim() })
 $vListaExcluirTipo = @($vExcluirTipoEspaco | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLower().Trim() })
 
-# 2. Prepara os Nomes (Regex para busca parcial de múltiplas palavras ignorando maiúscula/minúscula)
 $vRegexFiltroNome       = Build-RegexPattern $vFiltroNome
 $vRegexFiltroNomeEspaco = Build-RegexPattern $vFiltroNomeEspaco
 $vRegexExcluirNome      = Build-RegexPattern $vExcluirNome
@@ -400,7 +397,6 @@ $vRegexExcluirNomeEspaco= Build-RegexPattern $vExcluirNomeEspaco
 Echo ""
 Echo "------[ DUMP DE APPS ]----------------------------------------------"
 
-# Busca TODOS os apps na API de uma só vez (filtragem ocorrerá em memória com alta performance)
 $vEndpointApps   = "/api/v1/items?resourceType=app"
 $vTodosOsApps    = Invoke-QlikCloudGet -Endpoint $vEndpointApps
 $vQtdTotalDeApps = $vTodosOsApps.Count
@@ -492,7 +488,12 @@ foreach ($vItem in $vTodosOsApps) {
         $vArgsDownload = @("-s", "-L", "--ssl-no-revoke", "-H", "Authorization: Bearer $vApiKeyLimpa", "-o", $vCaminhoArquivo, $vDownloadUrl)
         & curl.exe $vArgsDownload
 
-        Echo "  -> OK: $vCaminhoArquivo"
+        # ADICIONA AVISO SE FOR MANAGED SPACE COM PEDIDO DE DADOS
+        if ($vTipoEspaco -eq "managed" -and $vDumpAppsSemDados -eq $false) {
+            Echo "  -> OK: $vCaminhoArquivo (Exportado SEM dados por regra do Qlik Managed Space)"
+        } else {
+            Echo "  -> OK: $vCaminhoArquivo"
+        }
 
     } catch {
         $vCountErros++

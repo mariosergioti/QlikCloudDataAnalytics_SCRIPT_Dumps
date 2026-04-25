@@ -3,9 +3,9 @@
 Cubotimize - Backup de Aplicações Qlik Cloud
 
 .DESCRIPTION
-Script para controle de backups do Qlik Cloud (SaaS).
+Script para controle de backups do Qlik Cloud Analytics (SaaS).
 Suporta dump de Apps (.qvf) de todos os tipos de Space:
-Managed, Shared, Personal e Data Space.
+Managed, Shared e Personal Space.
 
 Funcionalidades:
   - Autenticação via API Key (Bearer Token)
@@ -14,8 +14,8 @@ Funcionalidades:
   - Gestão de retenção por número de dias
   - BYPASS DE REDE CORPORATIVA: Utiliza curl.exe nativo para contornar SSL Inspection.
   - Mapeamento dinâmico de IDs de usuário para Nomes no Personal Space.
-  - Filtros avançados por Nome e Tipo de Space.
-  - Exclusões avançadas por Nome e Tipo.
+  - Filtros avançados por Nome e Tipo de Space (Suporta múltiplos valores).
+  - Exclusões avançadas por Nome e Tipo (Suporta múltiplos valores).
   - Ignora de forma elegante a restrição de privacidade de Personal Spaces de terceiros.
 
 .NOTES
@@ -31,10 +31,10 @@ Direitos Reservados: https://cubotimize.com
 # =================================================================
 # URL do seu ambiente Qlik Cloud. 
 # IMPORTANTE: Não coloque barra (/) no final. Ex: "https://empresa.us.qlikcloud.com"
-$vTenantUrl         = "https://trocar.us.qlikcloud.com"
+$vTenantUrl         = "https://mozak.us.qlikcloud.com"
 
 # Sua Chave de API (Bearer Token) gerada no painel do Qlik Cloud.
-$vApiKey            = "SUA_APIKEY_TROCAR"
+$vApiKey            = "SUA_API_KEY_AQUI"
 
 # =================================================================
 # ⚙️ 2. O QUE FAZER NO DUMP (COMPORTAMENTO)
@@ -43,33 +43,27 @@ $vApiKey            = "SUA_APIKEY_TROCAR"
 $vDumpApps        = $true
 
 # Configuração de Peso dos Apps:
-# $true  -> Baixa apenas o layout/script do App (Arquivo leve e rápido).
+# $true  -> Baixa apenas o layout/script do App (Arquivo leve e rápido - NoData).
 # $false -> Baixa o App completo, incluindo todos os dados carregados nele (Arquivo pesado).
-$vDumpAppsSemDados = $true
+$vDumpAppsSemDados = $false
 
 # =================================================================
 # ⚙️ 3. FILTROS OPCIONAIS (REGRAS DE INCLUSÃO)
 # =================================================================
-# Baixa APENAS os Apps com essa palavra no nome. Deixe "" para baixar tudo. Ex: "Producao"
-$vFiltroNome        = ""
-
-# Baixa APENAS este TIPO de Space ("managed", "shared", "personal"). Deixe "" para todos.
-$vFiltroTipoEspaco  = ""
-
-# Baixa APENAS os Spaces que contenham esta palavra no nome. Deixe "" para todos. Ex: "Vendas"
-$vFiltroNomeEspaco  = ""
+# Baixa APENAS os itens informados. Deixe "" ou @() para ignorar o filtro.
+# Suporta múltiplos valores: @("Valor1", "Valor2")
+$vFiltroNome        = @()
+$vFiltroTipoEspaco  = @("managed", "shared")
+$vFiltroNomeEspaco  = @()
 
 # =================================================================
 # ⚙️ 4. EXCLUSÕES OPCIONAIS (REGRAS DE EXCLUSÃO)
 # =================================================================
-# IGNORA os Apps que contenham esta palavra no nome. Deixe "" para não excluir nada. Ex: "Teste"
-$vExcluirNome       = ""
-
-# IGNORA este TIPO de Space ("managed", "shared", "personal"). Deixe "" para não excluir nada.
-$vExcluirTipoEspaco = ""
-
-# IGNORA os Spaces que contenham esta palavra no nome. Deixe "" para não excluir nada. Ex: "Homologacao"
-$vExcluirNomeEspaco = ""
+# IGNORA os itens informados. Deixe "" ou @() para não excluir nada.
+# Suporta múltiplos valores: @("Valor1", "Valor2")
+$vExcluirNome       = @("Cópia")
+$vExcluirTipoEspaco = @()
+$vExcluirNomeEspaco = @("Backup")
 
 # =================================================================
 # ⚙️ 5. CONFIGURAÇÕES DE DESTINO E RETENÇÃO DE ARQUIVOS
@@ -79,7 +73,7 @@ $vServidorNome      = $(hostname).ToUpper()
 
 # Caminho exato onde a pasta diária de backup será criada.
 # IMPORTANTE: O caminho deve terminar sempre com uma barra (\).
-$vPastaBackup       = "\\TROCAR\BACKUP\QLIK\QLIK_CLOUD\$vServidorNome\Dumps\"
+$vPastaBackup       = "G:\Drives compartilhados\90 - Backup Corporativo\Mozak\Backup_QCDA\"
 
 # Tempo de vida do backup em dias. Pastas mais antigas que isso serão apagadas automaticamente.
 $vDiasBackup        = 30
@@ -94,13 +88,13 @@ $vSmtpServer        = "smtp.gmail.com"
 $vSmtpPort          = 587
 
 # E-mail robô que fará o disparo (remetente)
-$vEmailRemetente    = "TROCAR@gmail.com"
+$vEmailRemetente    = "site.cubotimize@gmail.com"
 
-# Senha de Aplicativo (App Password) de 16 dígitos gerada nas configurações de segurança do provedor.
-$vSenhaAppGmail     = "xxxx xxxx xxxx xxxx"
+# Senha de Aplicativo (App Password) de 16 dígitos gerada nas configurações de segurança.
+$vSenhaAppGmail     = "sua senha de app"
 
-# E-mail da equipe/pessoa que vai receber o relatório final.
-$vEmailDestino      = "TROCAR", "TROCAR"
+# E-mail da equipe/pessoa que vai receber o relatório final. (Pode ser array com vários emails)
+$vEmailDestino      = "ti@cubotimize.com"
 
 
 # -----------------------------------------------------------------
@@ -111,17 +105,13 @@ $vEmailDestino      = "TROCAR", "TROCAR"
 # =================================================================
 # PREPARAÇÃO DE SISTEMA E REDE
 # =================================================================
-# Correção de Acentuação e Caracteres Especiais (UTF-8)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# Mantido para o disparo de e-mails (não afeta o cURL)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Remove espaços vazios acidentais da chave
 $vApiKeyLimpa = $vApiKey -replace "\s", ""
 
-# Array de argumentos padrão que serão injetados nas chamadas curl
 $vCurlHeaders = @(
     "-H", "Authorization: Bearer $vApiKeyLimpa",
     "-H", "Content-Type: application/json",
@@ -129,7 +119,22 @@ $vCurlHeaders = @(
 )
 
 # =================================================================
-# FUNÇÃO AUXILIAR: Chamar API Qlik Cloud GET com paginação automática (VIA cURL)
+# FUNÇÃO AUXILIAR: Formatadores para Exibição
+# =================================================================
+Function Convert-ArrayToString ($ArrayVal) {
+    if ($null -eq $ArrayVal -or [string]::IsNullOrWhiteSpace(($ArrayVal -join ""))) { return "" }
+    return ($ArrayVal | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() }) -join ", "
+}
+
+$vStrFiltroNome       = Convert-ArrayToString $vFiltroNome
+$vStrFiltroTipo       = Convert-ArrayToString $vFiltroTipoEspaco
+$vStrFiltroSpace      = Convert-ArrayToString $vFiltroNomeEspaco
+$vStrExcluirNome      = Convert-ArrayToString $vExcluirNome
+$vStrExcluirTipo      = Convert-ArrayToString $vExcluirTipoEspaco
+$vStrExcluirSpace     = Convert-ArrayToString $vExcluirNomeEspaco
+
+# =================================================================
+# FUNÇÃO AUXILIAR: Chamar API Qlik Cloud GET (VIA cURL)
 # =================================================================
 Function Invoke-QlikCloudGet {
     param(
@@ -268,14 +273,14 @@ If (!(Test-Path $vPastaDestino)) {
 if ($vEnviarEmail) {
     $vModoAppsTexto = if ($vDumpAppsSemDados) { "Apps SEM dados de carga (NoData)" } else { "Apps COM dados de carga" }
 
-    $vFiltroTexto    = if ($vFiltroNome -ne "") { "Filtro Nome App: <b>'$vFiltroNome'</b><br>" } else { "" }
-    $vFiltroTexto   += if ($vFiltroTipoEspaco -ne "") { "Filtro Tipo Space: <b>'$vFiltroTipoEspaco'</b><br>" } else { "" }
-    $vFiltroTexto   += if ($vFiltroNomeEspaco -ne "") { "Filtro Nome Space: <b>'$vFiltroNomeEspaco'</b><br>" } else { "" }
+    $vFiltroTexto    = if ($vStrFiltroNome -ne "") { "Filtro Nome App: <b>'$vStrFiltroNome'</b><br>" } else { "" }
+    $vFiltroTexto   += if ($vStrFiltroTipo -ne "") { "Filtro Tipo Space: <b>'$vStrFiltroTipo'</b><br>" } else { "" }
+    $vFiltroTexto   += if ($vStrFiltroSpace -ne "") { "Filtro Nome Space: <b>'$vStrFiltroSpace'</b><br>" } else { "" }
     if ($vFiltroTexto -eq "") { $vFiltroTexto = "Sem filtros inclusivos ativos.<br>" }
 
-    $vExclusaoTexto  = if ($vExcluirNome -ne "") { "Excluir Nome App: <b>'$vExcluirNome'</b><br>" } else { "" }
-    $vExclusaoTexto += if ($vExcluirTipoEspaco -ne "") { "Excluir Tipo Space: <b>'$vExcluirTipoEspaco'</b><br>" } else { "" }
-    $vExclusaoTexto += if ($vExcluirNomeEspaco -ne "") { "Excluir Nome Space: <b>'$vExcluirNomeEspaco'</b><br>" } else { "" }
+    $vExclusaoTexto  = if ($vStrExcluirNome -ne "") { "Excluir Nome App: <b>'$vStrExcluirNome'</b><br>" } else { "" }
+    $vExclusaoTexto += if ($vStrExcluirTipo -ne "") { "Excluir Tipo Space: <b>'$vStrExcluirTipo'</b><br>" } else { "" }
+    $vExclusaoTexto += if ($vStrExcluirSpace -ne "") { "Excluir Nome Space: <b>'$vStrExcluirSpace'</b><br>" } else { "" }
     if ($vExclusaoTexto -eq "") { $vExclusaoTexto = "Sem exclusões ativas.<br>" }
 
     Send-CubotimizeEmail -Status "▶️ INICIADO" -Mensagem @"
@@ -306,14 +311,14 @@ Echo ""
 Echo " Dump de Apps  : $(if ($vDumpAppsSemDados) { 'SIM (sem dados de carga)' } else { 'SIM (com dados de carga)' })"
 Echo ""
 Echo " --- FILTROS ---"
-Echo " Filtro Nome App  : $(if ($vFiltroNome -ne '') { $vFiltroNome } else { '(nenhum)' })"
-Echo " Filtro Tipo Space: $(if ($vFiltroTipoEspaco -ne '') { $vFiltroTipoEspaco } else { '(nenhum)' })"
-Echo " Filtro Nome Space: $(if ($vFiltroNomeEspaco -ne '') { $vFiltroNomeEspaco } else { '(nenhum)' })"
+Echo " Filtro Nome App  : $(if ($vStrFiltroNome -ne '') { $vStrFiltroNome } else { '(nenhum)' })"
+Echo " Filtro Tipo Space: $(if ($vStrFiltroTipo -ne '') { $vStrFiltroTipo } else { '(nenhum)' })"
+Echo " Filtro Nome Space: $(if ($vStrFiltroSpace -ne '') { $vStrFiltroSpace } else { '(nenhum)' })"
 Echo ""
 Echo " --- EXCLUSÕES ---"
-Echo " Excluir Nome App  : $(if ($vExcluirNome -ne '') { $vExcluirNome } else { '(nenhum)' })"
-Echo " Excluir Tipo Space: $(if ($vExcluirTipoEspaco -ne '') { $vExcluirTipoEspaco } else { '(nenhum)' })"
-Echo " Excluir Nome Space: $(if ($vExcluirNomeEspaco -ne '') { $vExcluirNomeEspaco } else { '(nenhum)' })"
+Echo " Excluir Nome App  : $(if ($vStrExcluirNome -ne '') { $vStrExcluirNome } else { '(nenhum)' })"
+Echo " Excluir Tipo Space: $(if ($vStrExcluirTipo -ne '') { $vStrExcluirTipo } else { '(nenhum)' })"
+Echo " Excluir Nome Space: $(if ($vStrExcluirSpace -ne '') { $vStrExcluirSpace } else { '(nenhum)' })"
 Echo "================================================================="
 Echo ""
 
@@ -369,14 +374,34 @@ foreach ($user in $vTodosOsUsuarios) { $vMapaUsuarios[$user.id] = $user.name }
 Echo "Total de Usuários encontrados: $($vTodosOsUsuarios.Count)"
 
 # =================================================================
+# PREPARAÇÃO DE FILTROS AVANÇADOS (LISTAS E REGEX)
+# =================================================================
+# Função auxiliar para criar um padrão de busca (Regex) para múltiplos nomes
+Function Build-RegexPattern ($ArrayOrString) {
+    if ($null -eq $ArrayOrString) { return "" }
+    $vListaLimpa = @($ArrayOrString | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { [regex]::Escape($_.Trim()) })
+    if ($vListaLimpa.Count -gt 0) { return "(" + ($vListaLimpa -join "|") + ")" }
+    return ""
+}
+
+# 1. Prepara os Tipos de Space (Listas em minúsculo para busca rápida)
+$vListaFiltroTipo  = @($vFiltroTipoEspaco | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLower().Trim() })
+$vListaExcluirTipo = @($vExcluirTipoEspaco | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLower().Trim() })
+
+# 2. Prepara os Nomes (Regex para busca parcial de múltiplas palavras ignorando maiúscula/minúscula)
+$vRegexFiltroNome       = Build-RegexPattern $vFiltroNome
+$vRegexFiltroNomeEspaco = Build-RegexPattern $vFiltroNomeEspaco
+$vRegexExcluirNome      = Build-RegexPattern $vExcluirNome
+$vRegexExcluirNomeEspaco= Build-RegexPattern $vExcluirNomeEspaco
+
+# =================================================================
 # BLOCO 1: DUMP DE APPS
 # =================================================================
 Echo ""
 Echo "------[ DUMP DE APPS ]----------------------------------------------"
 
-$vEndpointApps = "/api/v1/items?resourceType=app"
-if ($vFiltroNome -ne "") { $vEndpointApps += "&name=$([Uri]::EscapeDataString($vFiltroNome))" }
-
+# Busca TODOS os apps na API de uma só vez (filtragem ocorrerá em memória com alta performance)
+$vEndpointApps   = "/api/v1/items?resourceType=app"
 $vTodosOsApps    = Invoke-QlikCloudGet -Endpoint $vEndpointApps
 $vQtdTotalDeApps = $vTodosOsApps.Count
 Echo "Apps encontrados na API: $vQtdTotalDeApps"
@@ -393,13 +418,14 @@ foreach ($vItem in $vTodosOsApps) {
     $vSpaceNome  = if ($vEspaco) { $vEspaco.name } else { "Personal" }
 
     # --- FILTROS DE INCLUSÃO ---
-    if ($vFiltroTipoEspaco -ne "" -and $vTipoEspaco -ne $vFiltroTipoEspaco.ToLower()) { $vCountAppsIgnorados++; continue }
-    if ($vFiltroNomeEspaco -ne "" -and $vSpaceNome -notmatch [regex]::Escape($vFiltroNomeEspaco)) { $vCountAppsIgnorados++; continue }
+    if ($vRegexFiltroNome -ne "" -and $vAppName -notmatch $vRegexFiltroNome) { $vCountAppsIgnorados++; continue }
+    if ($vListaFiltroTipo.Count -gt 0 -and $vTipoEspaco -notin $vListaFiltroTipo) { $vCountAppsIgnorados++; continue }
+    if ($vRegexFiltroNomeEspaco -ne "" -and $vSpaceNome -notmatch $vRegexFiltroNomeEspaco) { $vCountAppsIgnorados++; continue }
 
     # --- FILTROS DE EXCLUSÃO ---
-    if ($vExcluirNome -ne "" -and $vAppName -match [regex]::Escape($vExcluirNome)) { $vCountAppsIgnorados++; continue }
-    if ($vExcluirTipoEspaco -ne "" -and $vTipoEspaco -eq $vExcluirTipoEspaco.ToLower()) { $vCountAppsIgnorados++; continue }
-    if ($vExcluirNomeEspaco -ne "" -and $vSpaceNome -match [regex]::Escape($vExcluirNomeEspaco)) { $vCountAppsIgnorados++; continue }
+    if ($vRegexExcluirNome -ne "" -and $vAppName -match $vRegexExcluirNome) { $vCountAppsIgnorados++; continue }
+    if ($vListaExcluirTipo.Count -gt 0 -and $vTipoEspaco -in $vListaExcluirTipo) { $vCountAppsIgnorados++; continue }
+    if ($vRegexExcluirNomeEspaco -ne "" -and $vSpaceNome -match $vRegexExcluirNomeEspaco) { $vCountAppsIgnorados++; continue }
 
     if ($vTipoEspaco -eq "managed") {
         $vCountManaged++
@@ -518,13 +544,13 @@ if ($vEnviarEmail) {
     $vStatusFinal    = if ($vCountErros -gt 0) { "⚠️ CONCLUÍDO COM FALHAS" } else { "✅ CONCLUÍDO COM SUCESSO" }
     $vCorBadgeFinal  = if ($vCountErros -gt 0) { "#E83B3B" } else { "#3BE854" }
 
-    $vModoAppsRelat    = if ($vDumpAppsSemDados) { "SEM dados de carga (NoData)" } else { "COM dados de carga" }
-    $vFiltroNomeRelat  = if ($vFiltroNome -ne "") { $vFiltroNome } else { "(nenhum)" }
-    $vFiltroTipoRelat  = if ($vFiltroTipoEspaco -ne "") { $vFiltroTipoEspaco } else { "(nenhum)" }
-    $vFiltroSpaceRelat = if ($vFiltroNomeEspaco -ne "") { $vFiltroNomeEspaco } else { "(nenhum)" }
-    $vExcluirNomeRelat  = if ($vExcluirNome -ne "") { $vExcluirNome } else { "(nenhuma)" }
-    $vExcluirTipoRelat  = if ($vExcluirTipoEspaco -ne "") { $vExcluirTipoEspaco } else { "(nenhuma)" }
-    $vExcluirSpaceRelat = if ($vExcluirNomeEspaco -ne "") { $vExcluirNomeEspaco } else { "(nenhuma)" }
+    $vModoAppsRelat     = if ($vDumpAppsSemDados) { "SEM dados de carga (NoData)" } else { "COM dados de carga" }
+    $vFiltroNomeRelat   = if ($vStrFiltroNome -ne "") { $vStrFiltroNome } else { "(nenhum)" }
+    $vFiltroTipoRelat   = if ($vStrFiltroTipo -ne "") { $vStrFiltroTipo } else { "(nenhum)" }
+    $vFiltroSpaceRelat  = if ($vStrFiltroSpace -ne "") { $vStrFiltroSpace } else { "(nenhum)" }
+    $vExcluirNomeRelat  = if ($vStrExcluirNome -ne "") { $vStrExcluirNome } else { "(nenhuma)" }
+    $vExcluirTipoRelat  = if ($vStrExcluirTipo -ne "") { $vStrExcluirTipo } else { "(nenhuma)" }
+    $vExcluirSpaceRelat = if ($vStrExcluirSpace -ne "") { $vStrExcluirSpace } else { "(nenhuma)" }
 
     $vHtmlRelatorio = @"
     <h3 style='color: #2E63E6; margin-bottom: 10px; font-size: 17px;'>📊 Resumo da Execução</h3>
